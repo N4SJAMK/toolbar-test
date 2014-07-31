@@ -1,0 +1,23 @@
+Toolbar testing with free model-based testing tool (fMBT)
+
+Required software:
+fMBT (https://01.org/fmbt)
+Python (2.7)
+Selenium (2.0)
+
+Test model for Toolbar is located in folder Toolbar.
+
+Tests can be run with the bash script named run.sh on linux machines:
+    
+    ./run
+    
+or manually using command
+
+    fmbt <conffile>.conf
+    
+where <conffile> is replaced with the one located in the test model's folder.
+
+Different test cases can be defined by changing the input weights in the .w file.
+A weight of 0 means the input will never be executed and a higher number means
+the input will be executed more often. Inputs not listed in .w file will not be used.
+Testing this way requires that you use heurestic="weight(<file>.w)" line in the .conf file.

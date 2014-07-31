@@ -1,0 +1,890 @@
+##ääääää important comment dont remove ääääää
+##
+#
+#   Test model for testing Toolbar
+#
+#
+##
+# preview-show-vars: state, dialog
+# preview-depth: 100
+# preview-hide-states: statechange, check_dialog
+# preview-show-states: state, dialog
+##
+aal "Toolbar" {
+    language "python" {
+        from adapters import seleniumadapter as toolbar
+    }
+
+    variables {
+        state, oldState, registered, logged, account, try_register, register_typed, login_typed, try_login, navbar_visible, in_dialog, dialog, oldDialog, is_tab, tab_selected, text_typed, is_toolbar, initiallogincheck, is_link, is_password, skipped
+    }
+    initial_state {
+        # initial states for variables
+        state = "frontpage"
+        navbar_visible = False
+        oldState = state
+        initiallogincheck = False
+        registered = False
+        logged = False
+        account = False
+        try_register = False
+        register_typed = False
+        login_typed = False
+        try_login = False
+        in_dialog = False
+        dialog = ""
+        oldDialog = dialog
+        is_tab = False
+        tab_selected = False
+        text_typed = False
+        is_toolbar = False
+        is_link = False
+        is_password = False
+        skipped = False
+    }
+    adapter_init {
+        # initialize testcode
+        toolbar.init()
+        account = toolbar.getAccount()
+        if account != "":
+            registered = True
+        if toolbar.checkMenu():
+            logged = True
+        #state = toolbar.getState()
+        oldState = state
+    }
+    adapter_exit {
+        toolbar.cleanUp()
+    }
+    
+    #verify dialog change
+    tag "check_dialog" {
+        guard { return dialog != oldDialog }
+        output "check_dialogchange" {
+            adapter {
+                if dialog == oldDialog:
+                    return
+                toolbar.resetCursor()
+                if dialog == "":
+                    if toolbar.checkExitDialog():
+                        oldDialog = dialog
+                        return True
+                    else:
+                        state = "undetermined"
+                        return False
+                        
+                if toolbar.verifyStateChangeTo(dialog):
+                    oldDialog = dialog
+                    return True
+                else:
+                    state = "undetermined"
+                    return False
+            }
+            body {
+                olddialog = dialog
+            }
+        }     
+    }
+    # verify page change
+    tag "statechange" {
+        guard { return state != oldState }
+        output "check_statechange" {
+            adapter {
+                if state == oldState:
+                    return
+                toolbar.resetCursor()
+                if toolbar.verifyStateChangeTo(state):
+                    oldState = state
+                    return True
+                else:
+                    state = "timeout"
+                    return False
+            }
+            body {
+                oldState = state
+            }
+        }        
+    }
+    
+    
+    output "check_navbar" {
+        guard { return navbar_visible == False }
+        adapter {
+            if navbar_visible == False and toolbar.checkNavbar() == True:
+                return True
+        }
+        body {
+            navbar_visible = True
+        }
+    }
+    output "check_no_navbar" {
+        guard { return navbar_visible == True }
+        adapter {
+            if navbar_visible == True and toolbar.checkNavbar() == False:
+                return True
+        }
+        body {
+            navbar_visible = False
+        }
+    }
+    
+    
+    
+    tag "navbar" {
+        guard { return navbar_visible == True and in_dialog == False }
+        input "click_register" {
+            guard { return registered == False }
+            adapter {
+                toolbar.clickMenuRegister()
+            }
+            body {
+                register_typed = False
+                in_dialog = True
+                dialog = "register"
+                navbar_visible = False
+            }
+        }
+        input "click_login" {
+            guard { return logged == False and registered == True }
+            adapter {
+                toolbar.clickMenuLogin()
+            }
+            body {
+                login_typed = False
+                in_dialog = True
+                dialog = "login"
+                navbar_visible = False
+            }
+        }
+        input "menu_logout" {
+            guard { return logged == True }
+            adapter {
+                toolbar.clickLines()
+                toolbar.clickMenuLogout()
+            }
+            body {
+                logged = False
+                state = "frontpage"
+                tab_selected = False
+            }
+        }
+        input "menu_profile" {
+            guard { return logged == True }
+            adapter {
+                toolbar.clickLines()
+                toolbar.clickMenuProfile()
+            }
+            body {
+                state = "profile"
+                tab_selected = False
+            }
+        }
+        input "menu_toolbars" {
+            guard { return logged == True }
+            adapter {
+                toolbar.clickLines()
+                toolbar.clickMenuToolbars()
+            }
+            body {
+                state = "toolbars"
+                tab_selected = False
+            }
+        }
+    }
+    tag "pages" {
+        guard { return in_dialog == False }
+        input "click_logo" {
+            guard { return state != "frontpage" and navbar_visible == True }
+            adapter {
+                toolbar.clickLogo()
+            }
+            body {
+                state = "frontpage"
+                navbar_visible = False
+                tab_selected = False
+            }
+        }
+        tag "frontpage" {
+            guard { return state == "frontpage" }
+            input "frontpage_click_try" {
+                adapter {
+                    toolbar.clickTry()
+                    toolbar.resetCursor()
+                }
+                body {
+                    state = "edit"
+                    if logged == True:
+                        state = "toolbars"
+                    navbar_visible = True
+                }
+            }
+            input "delete_account" {
+                guard { return logged == False and registered == True }
+                adapter {
+                    toolbar.deleteAccount()
+                }
+                body {
+                    logged = False
+                    registered = False
+                    account = ""
+                }
+            }
+        }
+        
+        tag "edit" {
+            guard { return state == "edit" }
+            input "skip_tutorial" {
+                guard { return skipped == False }
+                adapter {
+                    toolbar.skipTutorial()
+                }
+                body {
+                    skipped = True
+                }
+            }
+            input "edit_select_tab" {
+                guard { return is_tab == True }
+                adapter {
+                    toolbar.selectTab()
+                }
+                body {
+                    tab_selected = True
+                }
+            }
+            input "edit_click_save" {
+                adapter {
+                    toolbar.clickSave()
+                    if toolbar.checkSubmit():
+                        toolbar.enterPassword()
+                        toolbar.clickSubmit()
+                    if logged == False:
+                        state = "view_toolbar"
+                }
+                body {
+                    navbar_visible = True
+                }
+            }
+            input "edit_click_view" {
+                guard { return logged == True }
+                adapter {
+                    toolbar.clickView()
+                    if toolbar.checkSubmit():
+                        toolbar.enterPassword()
+                        toolbar.clickSubmit()
+                }
+                body {
+                    navbar_visible = True
+                    state = "view_toolbar"
+                }
+            }
+            input "edit_modify_toolbar_title" {
+                adapter {
+                    toolbar.modifyToolbarTitle()
+                }
+                body {
+                    in_dialog = True
+                    dialog = "edit_title"
+                    navbar_visible = False
+                }
+            }
+            output "check_tab" {
+                guard { return state == "edit" and in_dialog == False and is_tab == False }
+                adapter {
+                    if state == "edit" and in_dialog == False and is_tab == False and toolbar.checkTab() == True:
+                        is_tab = True
+                        return True
+                }
+                body {
+                    is_tab = True
+                }
+            }
+            output "check_notab" {
+                guard { return state == "edit" and in_dialog == False and is_tab == True }
+                adapter {
+                    if state == "edit" and in_dialog == False and is_tab == True and toolbar.checkTab() == False:
+                        is_tab = False
+                        return True
+                }
+                body {
+                    is_tab = False
+                }
+            }
+            
+            input "edit_edittab" {
+                guard { return is_tab == True and tab_selected == True }
+                adapter {
+                    toolbar.clickEditTab()
+                }
+                body {
+                    in_dialog = True
+                    dialog = "add_tab"
+                }
+            }
+            input "edit_click_add_link" {
+                guard { return is_tab == True and tab_selected == True }
+                adapter {
+                    toolbar.clickAddLink()
+                }
+                body {
+                    in_dialog = True
+                    dialog = "add_link"
+                    navbar_visible = False
+                }
+            }
+            
+            # check links
+            output "check_links" {
+                guard { return state == "edit" and  is_link == False and in_dialog == False }
+                adapter {
+                    if state == "edit" and  is_link == False and in_dialog == False and toolbar.checkLinks() == True:
+                        return True
+                }
+                body { is_link = True }
+            }
+            output "check_nolinks" {
+                guard { return state == "edit" and  is_link == True and in_dialog == False }
+                adapter {
+                    if state == "edit" and  is_link == True and in_dialog == False and toolbar.checkLinks() == False:
+                        return True
+                }
+                body { is_link = False }
+            }
+            
+            input "edit_toggle_link" {
+                guard { return is_tab == True and is_link == True }
+                adapter {
+                    toolbar.clickToggleLink()
+                }
+            }
+            input "edit_click_delete_link" {
+                guard { return is_tab == True and is_link == True }
+                adapter {
+                    toolbar.clickDeleteLink()
+                }
+                body {
+                    in_dialog = True
+                    dialog = "confirm_dialog"
+                }
+            }
+            input "edit_click_deletetab" {
+                guard { return is_tab == True  and tab_selected == True }
+                adapter {
+                    toolbar.clickDeleteTab()
+                }
+                body {
+                    tab_selected = False
+                    is_tab = False
+                    in_dialog = True
+                    dialog = "confirm_dialog"
+                }
+            }
+            input "edit_click_addtab" {
+                adapter {
+                    toolbar.clickAddTab()
+                }
+                body {
+                    tab_selected = False
+                    in_dialog = True
+                    dialog = "add_tab"
+                    navbar_visible = False
+                }
+            }
+            input "edit_click_password" {
+                guard { return logged == True }
+                adapter {
+                    toolbar.clickPassword()
+                }
+                body {
+                    tab_selected = False
+                    in_dialog = True
+                    dialog = "password_dialog"
+                    navbar_visible = False
+                }
+            }   
+        }
+        
+        tag "profile" {
+            guard { return state == "profile" and logged == True }
+            input "profile_type_password" {
+                guard { return text_typed == False }
+                adapter {
+                    toolbar.typePassword()
+                }
+                body {
+                    text_typed = True
+                }
+            }
+            input "profile_click_change" {
+                guard { return text_typed == True }
+                adapter {
+                    toolbar.clickChange()
+                }
+                body {
+                    text_typed = False
+                }
+            }
+        }
+        
+        tag "toolbars" {
+            guard { return state == "toolbars" and logged == True }
+            output "check_toolbar" {
+                guard { return state == "toolbars" and is_toolbar == False }
+                adapter {
+                    if state == "toolbars" and is_toolbar == False and  toolbar.checkToolbar() == True:
+                        is_toolbar = True
+                        return
+                }
+                body {
+                    is_toolbar = True
+                }
+            }
+            output "check_notoolbar" {
+                guard { return state == "toolbars" and is_toolbar == True }
+                adapter {
+                    if state == "toolbars" and is_toolbar == True and  toolbar.checkToolbar() == False:
+                        is_toolbar = False
+                        return
+                }
+                body {
+                    is_toolbar = False
+                }
+            }
+            input "toolbars_click_edit" {
+                guard { return is_toolbar == True }
+                adapter {
+                    toolbar.clickButtonEdit()
+                }
+                body {
+                    state = "edit"
+                }
+            }
+            input "toolbars_click_toolbar" {
+                guard { return is_toolbar == True }
+                adapter {
+                    toolbar.selectToolbar()
+                    if toolbar.checkSubmit():
+                        toolbar.enterPassword()
+                        toolbar.clickSubmit()
+                }
+                body {
+                    state = "view_toolbar"
+                }
+            }
+            input "toolbars_click_delete" {
+                guard { return is_toolbar == True }
+                adapter {
+                    toolbar.clickDelete()
+                    toolbar.confirmAlert()
+                }
+            }
+            input "toolbars_click_createnew" {
+                adapter {
+                    toolbar.clickCreatenew()
+                }
+                body {
+                    state = "edit"
+                }
+            }
+            input "pageup" {
+                adapter {
+                    #toolbar.pressKey("Page_Up")
+                }
+            }
+            input "pagedown" {
+                adapter {
+                    #toolbar.pressKey("Page_Down")
+                }
+            }
+        }
+        
+        tag "view_toolbar" {
+            guard { return state == "view_toolbar" }
+            input "view_click_edit" {
+                adapter {
+                    toolbar.clickButtonEdit()
+                }
+                body {
+                    state = "edit"
+                }
+            }
+        }
+    }
+    tag "dialog" {
+        guard { return in_dialog == True }
+        tag "register" {
+            guard { return dialog == "register" }
+            input "register_click_close" {
+                guard { return try_register == False and register_typed == False}
+                adapter {
+                    toolbar.clickCancel()
+                }
+                body {
+                    in_dialog = False
+                    dialog = ""
+                }
+            }
+            input "register_type_info" {
+                guard { return try_register == False and register_typed == False and registered == False}
+                adapter {
+                    toolbar.typeRegisterInfo()
+                }
+                body {
+                    register_typed = True
+                }
+            }
+            input "register_click_register" {
+                guard { return register_typed == True and try_register == False }
+                adapter {
+                    toolbar.clickDialogRegister()
+                    toolbar.wait()
+                }
+                body {
+                    try_register = True
+                    
+                }
+            }
+            output "register_success" {
+                guard { return dialog == "register" and try_register == True and register_typed == True }
+                adapter {
+                    if dialog == "register" and try_register == True and register_typed == True and toolbar.checkAccountCreated():
+                        toolbar.confirmResponse()
+                        try_register = False
+                        registered = True
+                        in_dialog = False
+                        register_typed = False
+                        dialog = ""
+                        
+                        account = toolbar.getAccount()
+                        navbar_visible = True
+                        return True
+                }
+                body {
+                    in_dialog = False
+                    try_register = False
+                    register_typed = False
+                    registered = True
+                    dialog = ""
+                    navbar_visible = True
+                }
+            }
+            output "register_fail" {
+                guard { return dialog == "register" and try_register == True and register_typed == True }
+                adapter {
+                    if dialog == "register" and try_register == True and toolbar.checkRegisterFail():
+                        try_register = False
+                        registered = False
+                        register_typed = False
+                        in_dialog = True
+                        dialog = "register"
+                        navbar_visible = False
+                        toolbar.confirmAlert()
+                        return True
+                }
+                body {
+                    in_dialog = True
+                    try_register = False
+                    register_typed = False
+                    registered = False
+                    navbar_visible = False
+                    dialog = ""
+                }
+            }
+        }
+        
+        tag "login" {
+            guard { return dialog == "login" }
+            input "login_click_close" {
+                guard { return login_typed == False and try_login == False }
+                adapter {
+                    toolbar.clickCancel()
+                }
+                body {
+                    in_dialog = False
+                    dialog = ""
+                    navbar_visible = True
+                    login_typed = False
+                }
+            }
+            input "login_type_info" {
+                guard { return login_typed == False and try_login == False }
+                adapter {
+                    toolbar.typeLoginInfo()
+                }
+                body {
+                    login_typed = True
+                }
+            }
+            input "login_click_login" {
+                guard { return try_login == False and login_typed == True }
+                adapter {
+                    toolbar.clickDialogLogin()
+                    toolbar.wait()
+                }
+                body {
+                    try_login = True
+                }
+            }
+            output "login_success" {
+                guard { return dialog == "login" and try_login == True and login_typed == True }
+                adapter {
+                    if dialog == "login" and try_login == True and toolbar.checkLoggedIn():
+                        try_login = False
+                        logged = True
+                        in_dialog = False
+                        login_typed = False
+                        dialog = ""
+                        return True
+                }
+                body {
+                    in_dialog = False
+                    try_login = False
+                    logged = True
+                    login_typed = False
+                    dialog = ""
+                }
+            }
+            output "login_fail" {
+                guard { return dialog == "login" and try_login == True }
+                adapter {
+                    if dialog == "login" and try_login == True and toolbar.checkLoginFail():
+                        try_login = False
+                        logged = False
+                        in_dialog = True
+                        login_typed = False
+                        dialog = "login"
+                        toolbar.confirmAlert()
+                        return True
+                }
+                body {
+                    in_dialog = True
+                    try_login = False
+                    logged = False
+                    login_typed = False
+                    dialog = "login"
+                }
+            }
+        }
+        
+        tag "edit_title" {
+            guard { return dialog == "edit_title" }
+            input "edit_title_click_cancel" {
+                adapter {
+                    toolbar.clickCancel()
+                }
+                body {
+                    text_typed = False
+                    in_dialog = False
+                    dialog = ""
+                    navbar_visible = True
+                }
+            }
+            input "edit_title_type_text" {
+                guard { return text_typed == False }
+                adapter {
+                    toolbar.typeToolbarTitle()
+                }
+                body {
+                    text_typed = True
+                }
+            }
+            input "edit_title_click_save" {
+                guard { return text_typed == True }
+                adapter {
+                    toolbar.clickDialogSave()
+                }
+                body {
+                    text_typed = False
+                    in_dialog = False
+                    dialog = ""
+                    navbar_visible = True
+                }
+            }
+        }
+        
+        tag "add_link" {
+            guard { return dialog == "add_link" }
+            input "add_link_click_close" {
+                adapter {
+                    toolbar.clickClose()
+                }
+                body {
+                    text_typed = False
+                    in_dialog = False
+                    dialog = ""
+                    navbar_visible = True
+                }
+            }
+            input "add_link_type_text" {
+                guard { return text_typed == False }
+                adapter {
+                    toolbar.addLinkTypeText()
+                }
+                body {
+                    text_typed = True
+                }
+            }
+            input "add_link_click_save" {
+                guard { return text_typed == True }
+                adapter {
+                    toolbar.clickDialogSave()
+                }
+                body {
+                    text_typed = False
+                    in_dialog = False
+                    dialog = ""
+                    navbar_visible = True
+                }
+            }
+            
+        }
+        
+        tag "add_tab" {
+            guard { return dialog == "add_tab" }
+            input "add_tab_click_close" {
+                adapter {
+                    toolbar.clickClose()
+                }
+                body {
+                    text_typed = False
+                    in_dialog = False
+                    dialog = ""
+                    navbar_visible = True
+                }
+            }
+            input "add_tab_type_text" {
+                guard { return text_typed == False }
+                adapter {
+                    toolbar.addTabTypeText()
+                }
+                body {
+                    text_typed = True
+                }
+            }
+            input "add_tab_select_icon" {
+                adapter {
+                    toolbar.addTabSelectIcon()
+                }
+            }
+            input "add_tab_click_save" {
+                guard { return text_typed == True }
+                adapter {
+                    toolbar.clickDialogSave()
+                }
+                body {
+                    tab_selected = False
+                    text_typed = False
+                    in_dialog = False
+                    dialog = ""
+                    navbar_visible = True
+                }
+            }
+        }
+        tag "password_dialog" {
+            guard { return dialog == "password_dialog" }
+            input "password_dialog_type" {
+                guard { return text_typed == False }
+                adapter {
+                    toolbar.typePasswordDialog()
+                }
+                body {
+                    text_typed = True
+                }
+            }
+            input "password_dialog_set" {
+                guard { return text_typed == True }
+                adapter {
+                    toolbar.clickSetPassword()
+                }
+                body {
+                    text_typed = False
+                    in_dialog = False
+                    dialog = ""
+                    navbar_visible = True
+                }
+            }
+            input "password_dialog_cancel" {
+                adapter {
+                    toolbar.clickCancel()
+                }
+                body {
+                    text_typed = False
+                    in_dialog = False
+                    dialog = ""
+                    navbar_visible = True
+                }
+            }
+            
+            output "check_password" {
+                guard { return in_dialog == True and dialog == "password_dialog" and is_password == False }
+                adapter {
+                    if in_dialog == True and dialog == "password_dialog" and is_password == False and toolbar.checkPassword() == True:
+                        is_password = True
+                        return True
+                }
+                body {
+                    is_password = True
+                }
+            }
+            output "check_nopassword" {
+                guard { return in_dialog == True and dialog == "password_dialog" and is_password == True }
+                adapter {
+                    if in_dialog == True and dialog == "password_dialog" and is_password == True and toolbar.checkPassword() == False:
+                        is_password = False
+                        return True
+                }
+                body {
+                    is_password = False
+                }
+            }
+            
+            input "password_dialog_remove" {
+                guard { return is_password == True }
+                adapter {
+                    toolbar.clickRemovePassword()
+                }
+                body {
+                    text_typed = False
+                    in_dialog = False
+                    dialog = ""
+                    navbar_visible = True
+                }
+            }
+        }
+        
+        tag "confirm_dialog" {
+            guard { return dialog == "confirm_dialog" }
+            input "confirm_dialog_yes" {
+                adapter {
+                    toolbar.clickYes()
+                }
+                body {
+                    in_dialog = False
+                    dialog = ""
+                    navbar_visible = True
+                }
+            }
+            input "confirm_dialog_no" {
+                adapter {
+                    toolbar.clickNo()
+                }
+                body {
+                    in_dialog = False
+                    dialog = ""
+                    navbar_visible = True
+                }
+            }
+        }
+    }
+    tag "timeout_error" {
+        guard { return state == "timeout" }
+        adapter {
+            print '\033[91m' + "        <error>Error: state change timed out.</error>" + '\033[0m'
+        }
+    }
+    tag "state_error" {
+        guard { return state == "undetermined" }
+        adapter {
+            print '\033[91m' +"        <error>Error: undetermined state (lag?).</error>" + '\033[0m'
+        }
+    }
+}
